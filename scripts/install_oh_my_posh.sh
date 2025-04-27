@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Directorio principal
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Importar funciones si está disponible
 if [ -f "$SCRIPT_DIR/init.sh" ]; then
@@ -26,13 +26,6 @@ else
     }
 fi
 
-# Verificar si whiptail está disponible
-if command -v whiptail &> /dev/null; then
-    USAR_WHIPTAIL=true
-else
-    USAR_WHIPTAIL=false
-fi
-
 # Verificar si yay está disponible
 if command -v yay &> /dev/null; then
     USAR_AUR=true
@@ -40,6 +33,7 @@ else
     USAR_AUR=false
 fi
 
+# Función principal de instalación
 instalar_oh_my_posh() {
     mensaje "Instalando Oh My Posh..."
 
@@ -91,22 +85,30 @@ instalar_oh_my_posh() {
     # Descargar temas
     wget https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/themes.zip -O "$HOME/.poshthemes/themes.zip"
     unzip -o "$HOME/.poshthemes/themes.zip" -d "$HOME/.poshthemes"
-    chmod u+rw "$HOME/.poshthemes/*.json"
+    chmod u+rw "$HOME/.poshthemes/"*.json
     rm "$HOME/.poshthemes/themes.zip"
 
-    # Añadir tema propio
-    cp "$SCRIPT_DIR/theme/oh-my-posh/custom.omp.json" "$HOME/.poshthemes"
+    # Añadir tema propio si existe
+    if [ -f "$SCRIPT_DIR/theme/oh-my-posh/custom.omp.json" ]; then
+        cp "$SCRIPT_DIR/theme/oh-my-posh/custom.omp.json" "$HOME/.poshthemes/"
+        mensaje "Tema personalizado copiado correctamente."
 
-    # Configurar un tema predeterminado
-    if [ -f "$HOME/.bashrc" ]; then
-        sed -i 's/eval "$(oh-my-posh init bash)"/eval "$(oh-my-posh init bash --config ~/.poshthemes\/custom.json)"/' "$HOME/.bashrc"
+        # Configurar el tema personalizado
+        if [ -f "$HOME/.bashrc" ]; then
+            sed -i 's/eval "$(oh-my-posh init bash)"/eval "$(oh-my-posh init bash --config ~\/.poshthemes\/custom.omp.json)"/' "$HOME/.bashrc"
+        fi
+    else
+        # Si no hay tema personalizado, usar uno predeterminado
+        mensaje "No se encontró tema personalizado, usando tema predeterminado."
+        if [ -f "$HOME/.bashrc" ]; then
+            sed -i 's/eval "$(oh-my-posh init bash)"/eval "$(oh-my-posh init bash --config ~\/.poshthemes\/atomic.omp.json)"/' "$HOME/.bashrc"
+        fi
     fi
 
-    source "$HOME/.bashrc"
-
-    mensaje "Oh My Posh instalado correctamente con el tema custom."
-    mensaje "Para probar otros temas, edita tu .bashrc y cambia custom.json por otro nombre de tema."
+    mensaje "Oh My Posh instalado correctamente."
     mensaje "Los temas están disponibles en ~/.poshthemes/"
+
+    return 0
 }
 
 instalar_oh_my_posh_manual() {
@@ -144,31 +146,6 @@ instalar_oh_my_posh_manual() {
     return 0
 }
 
-# Función principal
-main() {
-    # Preguntar al usuario si desea instalar Oh My Posh
-    if [ "$USAR_WHIPTAIL" = true ]; then
-        whiptail --title "Oh My Posh" --yesno "¿Deseas instalar Oh My Posh? (Un personalizador de prompt bonito para tu terminal)" 10 60
-        RESPUESTA=$?
-
-        if [ $RESPUESTA -eq 0 ]; then
-            instalar_oh_my_posh
-        else
-            mensaje "Instalación de Oh My Posh omitida."
-        fi
-    else
-        mensaje "¿Deseas instalar Oh My Posh? (Un personalizador de prompt bonito para tu terminal) [s/n]"
-        read -r RESPUESTA
-        case "$RESPUESTA" in
-            [Ss]*)
-                instalar_oh_my_posh
-                ;;
-            *)
-                mensaje "Instalación de Oh My Posh omitida."
-                ;;
-        esac
-    fi
-}
-
-# Ejecutar el script
-main
+# Ejecutar la instalación directamente
+instalar_oh_my_posh
+exit $?
