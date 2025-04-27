@@ -29,6 +29,9 @@ chmod +x "$SCRIPTS_DIR/install_git.sh"
 chmod +x "$SCRIPTS_DIR/install_yay.sh"
 chmod +x "$SCRIPTS_DIR/install_oh_my_posh.sh"
 chmod +x "$SCRIPTS_DIR/install_chaotic_aur.sh"
+chmod +x "$SCRIPTS_DIR/install_sdkman.sh"
+chmod +x "$SCRIPTS_DIR/install_nvm.sh"
+chmod +x "$SCRIPTS_DIR/install_docker.sh"
 
 # Comprobamos si se ejecuta como root
 if [ "$(id -u)" -eq 0 ]; then
@@ -41,7 +44,7 @@ if [ "${1:-}" = "--functions-only" ]; then
     return 2>/dev/null || exit 0
 fi
 
-# Ejecución de scripts de comprobación previos (supongo que ya los tienes)
+# Ejecución de scripts de comprobación previos
 if [ -f "$SCRIPTS_DIR/install_whiptail.sh" ]; then
     "$SCRIPTS_DIR/install_whiptail.sh" || advertencia "No se pudo instalar whiptail. Continuando en modo texto."
 fi
@@ -77,18 +80,22 @@ if [ -f "$SCRIPTS_DIR/install_chaotic_aur.sh" ]; then
 fi
 
 # Lista unificada de programas para instalar
-# Formato: "nombre_paquete" "descripción" "repositorio (pacman/aur)"
+# Formato: "nombre_paquete" "descripción" "repositorio (pacman/aur/script)"
 PROGRAMAS=(
     "fastfetch" "Herramienta para mostrar información del sistema" "aur"
     "btop" "Monitor de procesos interactivo" "pacman"
-    "firefox" "Navegador web" "pacman"
     "vlc" "Reproductor multimedia" "pacman"
     "wget" "Herramienta para descargar archivos" "pacman"
+    "zip" "Herramienta para comprimir archivos" "pacman"
     "unzip" "Herramienta para descomprimir archivos" "pacman"
     "visual-studio-code-bin" "Editor de código" "aur"
     "intellij-idea-community-edition-jre" "IDE" "aur"
     "spotify" "Cliente de música" "aur"
     "pamac" "Administrador de paquetes" "pacman"
+    "docker" "Plataforma de contenedores" "pacman"
+    "sdkman" "Gestor de versiones de SDK para Java" "script"
+    "nvm" "Gestor de versiones de Node.js" "script"
+    "oh-my-posh" "Personalización del terminal" "script"
 )
 
 # Función para mostrar progreso
@@ -180,6 +187,42 @@ if [ "$USAR_WHIPTAIL" = true ]; then
                 else
                     mostrar_progreso "$programa ya está instalado. ($CONTADOR/$TOTAL)" $PORCENTAJE
                 fi
+            elif [ "$REPOSITORIO" = "script" ]; then
+                mostrar_progreso "Instalando $programa mediante script... ($CONTADOR/$TOTAL)" $PORCENTAJE
+
+                # Ejecutar script correspondiente
+                case "$programa" in
+                    "sdkman")
+                        if [ -f "$SCRIPTS_DIR/install_sdkman.sh" ]; then
+                            "$SCRIPTS_DIR/install_sdkman.sh" || {
+                                whiptail --title "Aviso" --msgbox "No se pudo instalar SDKMAN" 10 60
+                            }
+                        else
+                            whiptail --title "Error" --msgbox "Script para SDKMAN no encontrado" 10 60
+                        fi
+                        ;;
+                    "nvm")
+                        if [ -f "$SCRIPTS_DIR/install_nvm.sh" ]; then
+                            "$SCRIPTS_DIR/install_nvm.sh" || {
+                                whiptail --title "Aviso" --msgbox "No se pudo instalar NVM" 10 60
+                            }
+                        else
+                            whiptail --title "Error" --msgbox "Script para NVM no encontrado" 10 60
+                        fi
+                        ;;
+                    "oh-my-posh")
+                        if [ -f "$SCRIPTS_DIR/install_oh_my_posh.sh" ]; then
+                            "$SCRIPTS_DIR/install_oh_my_posh.sh" || {
+                                whiptail --title "Aviso" --msgbox "No se pudo instalar Oh My Posh" 10 60
+                            }
+                        else
+                            whiptail --title "Error" --msgbox "Script para Oh My Posh no encontrado" 10 60
+                        fi
+                        ;;
+                    *)
+                        whiptail --title "Aviso" --msgbox "No se encontró un método de instalación para $programa" 10 60
+                        ;;
+                esac
             fi
         done
     else
@@ -196,7 +239,14 @@ else
         # Si es un paquete AUR y no se puede usar AUR, lo saltamos
         if [ "$repo" = "aur" ] && [ "$USAR_AUR" != true ]; then
             continue
-        }
+        fi
+
+        # Preguntar si se desea instalar este programa
+        read -p "¿Desea instalar $nombre ($descripcion)? [s/N]: " respuesta
+        if [[ "$respuesta" != [sS]* ]]; then
+            mensaje "Omitiendo $nombre"
+            continue
+        fi
 
         if [ "$repo" = "pacman" ]; then
             if ! pacman -Qi "$nombre" &> /dev/null; then
@@ -212,14 +262,39 @@ else
             else
                 mensaje "$nombre ya está instalado."
             fi
+        elif [ "$repo" = "script" ]; then
+            # Lógica para instalar mediante scripts
+            case "$nombre" in
+                "sdkman")
+                    mensaje "Instalando SDKMAN..."
+                    if [ -f "$SCRIPTS_DIR/install_sdkman.sh" ]; then
+                        "$SCRIPTS_DIR/install_sdkman.sh" || advertencia "No se pudo instalar SDKMAN"
+                    else
+                        error "Script para SDKMAN no encontrado"
+                    fi
+                    ;;
+                "nvm")
+                    mensaje "Instalando NVM..."
+                    if [ -f "$SCRIPTS_DIR/install_nvm.sh" ]; then
+                        "$SCRIPTS_DIR/install_nvm.sh" || advertencia "No se pudo instalar NVM"
+                    else
+                        error "Script para NVM no encontrado"
+                    fi
+                    ;;
+                "oh-my-posh")
+                    mensaje "Instalando Oh My Posh..."
+                    if [ -f "$SCRIPTS_DIR/install_oh_my_posh.sh" ]; then
+                        "$SCRIPTS_DIR/install_oh_my_posh.sh" || advertencia "No se pudo instalar Oh My Posh"
+                    else
+                        error "Script para Oh My Posh no encontrado"
+                    fi
+                    ;;
+                *)
+                    advertencia "No se encontró un método de instalación para $nombre"
+                    ;;
+            esac
         fi
     done
-fi
-
-# Ejecutar script de instalación de Oh My Posh
-if [ -f "$SCRIPTS_DIR/install_oh_my_posh.sh" ]; then
-    mensaje "Ejecutando script de instalación de Oh My Posh..."
-    "$SCRIPTS_DIR/install_oh_my_posh.sh"
 fi
 
 # Mensaje final
